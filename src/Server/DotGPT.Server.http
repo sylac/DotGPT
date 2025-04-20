@@ -1,0 +1,6 @@
+@DotGPT.Server_HostAddress = http://localhost:5089
+
+GET {{DotGPT.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

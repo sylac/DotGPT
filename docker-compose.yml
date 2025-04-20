@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: .  # Build context is the directory containing this file (DotGPT)
+      dockerfile: ./src/Server/Dockerfile # Path relative to context
+    ports:
+      - "8080:8080" # Map host port 8080 to container port 8080 (ASP.NET Core Kestrel)
+      # - "8081:8081" # Uncomment if using HTTPS
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development # Or Production
+      # Add other environment variables needed by the server
+    #volumes:
+      # Optional: Mount logs or data volumes if needed
+      # - ./logs:/app/logs
+    depends_on:
+      # Add dependencies like databases if any
+      []
+    networks:
+      - dotgpt-network
+
+  client:
+    build:
+      context: .  # Build context is the directory containing this file (DotGPT)
+      dockerfile: ./src/Client/Dockerfile # Path relative to context
+    ports:
+      - "8081:80" # Map host port 8081 to container port 80 (Nginx)
+    depends_on:
+      - server # Client might call the server API, though it runs in the browser
+    networks:
+      - dotgpt-network
+
+networks:
+  dotgpt-network:
+    driver: bridge
