@@ -1,0 +1,64 @@
+@page "/settings"
+@page "/settings/{subpage}"
+
+<PageTitle>Settings</PageTitle>
+
+<div class="settings-container">
+    <div class="settings-sidebar">
+        <div class="settings-nav">
+            <NavLink class="settings-nav-link " href="settings/general">
+                General
+            </NavLink>
+            <NavLink class="settings-nav-link " href="settings/appearance">
+                Appearance
+            </NavLink>
+            <NavLink class="settings-nav-link " href="settings/privacy">
+                Privacy
+            </NavLink>
+            <NavLink class="settings-nav-link " href="settings/advanced">
+                Advanced
+            </NavLink>
+        </div>
+    </div>
+    
+    <div class="settings-content">
+        @switch (CurrentSubpage)
+        {
+            case "general":
+                <GeneralSettings />
+                break;
+            case "appearance":
+                <AppearanceSettings />
+                break;
+            case "privacy":
+                <PrivacySettings />
+                break;
+            case "advanced":
+                <AdvancedSettings />
+                break;
+            default:
+                <GeneralSettings />
+                break;
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public string? Subpage { get; set; }
+
+    private string CurrentSubpage => string.IsNullOrEmpty(Subpage) ? "general" : Subpage.ToLower();
+
+    private string GetActiveClass(string page)
+    {
+        return CurrentSubpage == page ? "active" : "";
+    }
+
+    protected override void OnInitialized()
+    {
+        if (string.IsNullOrEmpty(Subpage))
+        {
+            Subpage = "general";
+        }
+    }
+}

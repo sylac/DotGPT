@@ -1,0 +1,102 @@
+@using DotGPT.Core.Interfaces
+@using DotGPT.Core.Models
+@inject ISettingsService SettingsService
+@inject IJSRuntime JSRuntime
+
+<h2>Privacy Settings</h2>
+
+<div class="settings-section">
+    <h3>Data Collection</h3>
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="anonymousAnalytics" 
+               @bind="settings.AllowAnonymousAnalytics" @bind:after="SaveSettings">
+        <label class="form-check-label" for="anonymousAnalytics">Allow anonymous usage analytics</label>
+    </div>
+    
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="improvementProgram" 
+               @bind="settings.ParticipateInImprovementProgram" @bind:after="SaveSettings">
+        <label class="form-check-label" for="improvementProgram">Participate in product improvement program</label>
+    </div>
+</div>
+
+<div class="settings-section">
+    <h3>Chat Data</h3>
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="storeChatLocal" 
+               @bind="settings.StoreChatLocally" @bind:after="SaveSettings">
+        <label class="form-check-label" for="storeChatLocal">Store chat data locally</label>
+    </div>
+    
+    <div class="mb-3">
+        <button class="btn btn-danger" @onclick="DeleteAllChatHistory">Delete All Chat History</button>
+    </div>
+</div>
+
+<div class="settings-section">
+    <h3>Cookies</h3>
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="essentialCookies" checked disabled>
+        <label class="form-check-label" for="essentialCookies">Essential cookies (required)</label>
+    </div>
+    
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="preferenceCookies" 
+               @bind="settings.UsePreferenceCookies" @bind:after="SaveSettings">
+        <label class="form-check-label" for="preferenceCookies">Preference cookies</label>
+    </div>
+</div>
+
+@if (showConfirmDialog)
+{
+    <div class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" @onclick="CloseDialog"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete all chat history? This action cannot be undone.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDialog">Cancel</button>
+                    <button type="button" class="btn btn-danger" @onclick="ConfirmDeleteHistory">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserSettings settings = new UserSettings();
+    private bool showConfirmDialog = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await SettingsService.GetSettingsAsync();
+    }
+
+    private async Task SaveSettings()
+    {
+        await SettingsService.SaveSettingsAsync(settings);
+    }
+
+    private void DeleteAllChatHistory()
+    {
+        showConfirmDialog = true;
+    }
+
+    private void CloseDialog()
+    {
+        showConfirmDialog = false;
+    }
+
+    private async Task ConfirmDeleteHistory()
+    {
+        // Clear chat history from local storage
+        await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "dotgpt_chat_history");
+        showConfirmDialog = false;
+        // You might want to show a success message here
+    }
+}

@@ -1,7 +1,106 @@
 ﻿@page "/"
+@using DotGPT.Core.Models
+@using DotGPT.Client.Components
+@inject IJSRuntime JSRuntime
 
-<PageTitle>Home</PageTitle>
+<PageTitle>DotGPT Chat</PageTitle>
 
-<h1>Hello, world!</h1>
+<div class="chat-container">
+    <div class="chat-title">
+        DotGPT Chat
+    </div>
 
-Welcome to your new app.
+    <div class="chat-messages" id="chatMessages">
+        @if (Messages.Count == 0)
+        {
+            <div class="welcome-message">
+                <h2>Welcome to DotGPT</h2>
+                <p>Start a conversation by sending a message below.</p>
+            </div>
+        }
+        else
+        {
+            foreach (var message in Messages)
+            {
+                <ChatMessage Message="message" />
+            }
+        }
+    </div>
+
+    <div class="chat-input">
+        <div class="input-container">
+            <textarea 
+                class="message-input" 
+                placeholder="Type a message..." 
+                @bind="newMessage" 
+                @bind:event="oninput" 
+                @onkeydown="HandleKeyDown"
+                @ref="messageInput">
+            </textarea>
+            <button class="send-button" @onclick="SendMessage" disabled="@string.IsNullOrWhiteSpace(newMessage)">
+                Send
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Message> Messages { get; set; } = new List<Message>();
+    private string newMessage = string.Empty;
+    private ElementReference messageInput;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Focus the input on first render
+            await JSRuntime.InvokeVoidAsync("focusElement", messageInput);
+        }
+
+        // Scroll to bottom whenever messages are updated
+        await JSRuntime.InvokeVoidAsync("scrollToBottom", "chatMessages");
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(newMessage))
+            return;
+
+        // Add user message
+        Messages.Add(new Message
+        {
+            Content = newMessage,
+            IsUserMessage = true,
+            Timestamp = DateTime.UtcNow
+        });
+
+        // Clear the input
+        string userMessage = newMessage;
+        newMessage = string.Empty;
+
+        // Ensure UI updates before processing response
+        StateHasChanged();
+        await Task.Delay(50); // Small delay to ensure UI update
+
+        // Add mock response (in a real app, this would call an API)
+        await Task.Delay(1000); // Simulate network delay
+        Messages.Add(new Message
+        {
+            Content = $"You said: {userMessage}. This is a mock response from DotGPT.",
+            IsUserMessage = false,
+            Timestamp = DateTime.UtcNow
+        });
+
+        // Focus back on input
+        await JSRuntime.InvokeVoidAsync("focusElement", messageInput);
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            // Send message on Enter without Shift
+            await SendMessage();
+        }
+    }
+}

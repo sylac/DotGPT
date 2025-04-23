@@ -1,0 +1,285 @@
+@using DotGPT.Core.Interfaces
+@using DotGPT.Core.Models
+@using DotGPT.Client.Services
+@inject ISettingsService SettingsService
+@inject IJSRuntime JSRuntime
+@inject OllamaClientService OllamaService
+
+<h2>Advanced Settings</h2>
+
+<div class="settings-section">
+    <h3>API Configuration</h3>
+    <div class="mb-3">
+        <label for="apiEndpoint" class="form-label">API Endpoint</label>
+        <input type="text" class="form-control" id="apiEndpoint" placeholder="https://api.example.com"
+               @bind="settings.ApiEndpoint" @bind:after="SaveSettings">
+    </div>
+    
+    <div class="mb-3">
+        <label for="apiKey" class="form-label">API Key</label>
+        <div class="input-group">
+            <input type="@(showApiKey ? "text" : "password")" class="form-control" id="apiKey" placeholder="Enter API key"
+                  @bind="settings.ApiKey" @bind:after="SaveSettings">
+            <button class="btn btn-outline-secondary" type="button" @onclick="ToggleApiKeyVisibility">
+                @(showApiKey ? "Hide" : "Show")
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="settings-section">
+    <h3>Model Settings</h3>
+    <div class="mb-3">
+        <label for="modelSelect" class="form-label">Default Model</label>
+        <select class="form-select" id="modelSelect"
+                @bind="settings.DefaultModel" @bind:after="SaveSettings">
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            <option value="gpt-4">GPT-4</option>
+            <option value="claude-2">Claude 2</option>
+            <option value="local">Local Model</option>
+            @if (settings.SelectedOllamaModel != null && !string.IsNullOrEmpty(settings.SelectedOllamaModel))
+            {
+                <option value="ollama">Ollama (@settings.SelectedOllamaModel)</option>
+            }
+            else
+            {
+                <option value="ollama">Ollama (Select below)</option>
+            }
+        </select>
+    </div>
+    
+    <div class="mb-3">
+        <label for="temperatureRange" class="form-label">Temperature (Creativity): @settings.Temperature.ToString("0.0")</label>
+        <input type="range" class="form-range" min="0" max="2" step="0.1" id="temperatureRange"
+               @bind="settings.Temperature" @bind:after="SaveSettings">
+        <div class="d-flex justify-content-between">
+            <span>Precise</span>
+            <span>Balanced</span>
+            <span>Creative</span>
+        </div>
+    </div>
+</div>
+
+<div class="settings-section">
+    <h3>Ollama Settings</h3>
+    <div class="mb-3">
+        <label for="ollamaEndpoint" class="form-label">Ollama Endpoint</label>
+        <div class="input-group">
+            <input type="text" class="form-control" id="ollamaEndpoint" placeholder="http://localhost:11434"
+                  @bind="settings.OllamaEndpoint" @bind:after="SaveOllamaEndpoint">
+            <button class="btn btn-outline-secondary" type="button" @onclick="CheckOllamaConnection">
+                Check
+            </button>
+        </div>
+        @if (ollamaConnectionStatus.HasValue)
+        {
+            <div class="form-text @(ollamaConnectionStatus.Value ? "text-success" : "text-danger")">
+                @(ollamaConnectionStatus.Value ? "✓ Connected to Ollama server" : "✗ Could not connect to Ollama server")
+            </div>
+        }
+    </div>
+    
+    <div class="mb-3">
+        <label for="ollamaModelSelect" class="form-label">Available Ollama Models</label>
+        <div class="d-flex">
+            <select class="form-select" id="ollamaModelSelect" @bind="settings.SelectedOllamaModel" @bind:after="SaveSettings">
+                <option value="">Select a model</option>
+                @foreach (var model in ollamaModels)
+                {
+                    <option value="@model.Name">@model.Name @(!string.IsNullOrEmpty(model.Parameters) ? $"({model.Parameters})" : "")</option>
+                }
+            </select>
+            <button class="btn btn-outline-secondary ms-2" type="button" @onclick="LoadOllamaModels">
+                <span class="@(isLoadingModels ? "spinner-border spinner-border-sm" : "")" role="status" aria-hidden="true"></span>
+                Refresh
+            </button>
+        </div>
+        @if (ollamaModels.Count > 0)
+        {
+            <div class="form-text">
+                @ollamaModels.Count models available
+            </div>
+        }
+        else if (isLoadingModels)
+        {
+            <div class="form-text">
+                Loading models...
+            </div>
+        }
+        else
+        {
+            <div class="form-text">
+                No models found. Make sure Ollama is running and models are installed.
+            </div>
+        }
+    </div>
+    
+    @if (selectedModelDetails != null)
+    {
+        <div class="card mb-3">
+            <div class="card-header">
+                Model Details: @selectedModelDetails.Name
+            </div>
+            <div class="card-body">
+                <p><strong>Family:</strong> @selectedModelDetails.Family</p>
+                <p><strong>Parameters:</strong> @(string.IsNullOrEmpty(selectedModelDetails.Parameters) ? "Unknown" : selectedModelDetails.Parameters)</p>
+                <p><strong>Quantization:</strong> @(string.IsNullOrEmpty(selectedModelDetails.Quantization) ? "None" : selectedModelDetails.Quantization)</p>
+                <p><strong>Size:</strong> @FormatModelSize(selectedModelDetails.Size)</p>
+                <p><strong>Modified:</strong> @selectedModelDetails.ModifiedAt.ToString("g")</p>
+            </div>
+        </div>
+    }
+</div>
+
+<div class="settings-section">
+    <h3>Developer</h3>
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="developerMode"
+               @bind="settings.DeveloperMode" @bind:after="SaveSettings">
+        <label class="form-check-label" for="developerMode">Developer mode</label>
+    </div>
+    
+    <div class="mb-3">
+        <button class="btn btn-secondary" @onclick="ExportDiagnostics">Export Diagnostics</button>
+        <button class="btn btn-warning ms-2" @onclick="ResetAllSettings">Reset All Settings</button>
+    </div>
+</div>
+
+@if (showResetConfirmDialog)
+{
+    <div class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reset Settings</h5>
+                    <button type="button" class="btn-close" @onclick="CloseResetDialog"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to reset all settings to their default values?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="CloseResetDialog">Cancel</button>
+                    <button type="button" class="btn btn-warning" @onclick="ConfirmResetSettings">Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private UserSettings settings = new UserSettings();
+    private bool showApiKey = false;
+    private bool showResetConfirmDialog = false;
+    private List<OllamaModel> ollamaModels = new List<OllamaModel>();
+    private OllamaModel? selectedModelDetails = null;
+    private bool isLoadingModels = false;
+    private bool? ollamaConnectionStatus = null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await SettingsService.GetSettingsAsync();
+        
+        // Load Ollama models on initialization
+        await LoadOllamaModels();
+    }
+    
+    protected override async Task OnParametersSetAsync()
+    {
+        // Update the selected model details when the selected model changes
+        if (!string.IsNullOrEmpty(settings.SelectedOllamaModel))
+        {
+            selectedModelDetails = ollamaModels.FirstOrDefault(m => m.Name == settings.SelectedOllamaModel);
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        await SettingsService.SaveSettingsAsync(settings);
+    }
+
+    private void ToggleApiKeyVisibility()
+    {
+        showApiKey = !showApiKey;
+    }
+    
+    private async Task CheckOllamaConnection()
+    {
+        await SaveOllamaEndpoint();
+        ollamaConnectionStatus = await OllamaService.IsServerAvailableAsync();
+    }
+    
+    private async Task SaveOllamaEndpoint()
+    {
+        await SaveSettings();
+        await OllamaService.UpdateEndpointAsync(settings.OllamaEndpoint);
+    }
+    
+    private async Task LoadOllamaModels()
+    {
+        isLoadingModels = true;
+        ollamaModels = await OllamaService.GetAvailableModelsAsync();
+        
+        // Update selected model details
+        if (!string.IsNullOrEmpty(settings.SelectedOllamaModel))
+        {
+            selectedModelDetails = ollamaModels.FirstOrDefault(m => m.Name == settings.SelectedOllamaModel);
+        }
+        
+        isLoadingModels = false;
+        StateHasChanged();
+    }
+    
+    private string FormatModelSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
+        int order = 0;
+        double size = bytes;
+        
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size /= 1024;
+        }
+        
+        return $"{size:0.##} {sizes[order]}";
+    }
+
+    private async Task ExportDiagnostics()
+    {
+        // Create a diagnostics object with relevant information
+        var diagnostics = new
+        {
+            AppVersion = "1.0.0",
+            Timestamp = DateTime.UtcNow,
+            Settings = settings,
+            BrowserInfo = await JSRuntime.InvokeAsync<string>("eval", "navigator.userAgent")
+        };
+
+        // Convert to JSON
+        var json = System.Text.Json.JsonSerializer.Serialize(diagnostics, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        // Trigger download of the JSON file
+        await JSRuntime.InvokeVoidAsync("downloadFile", "dotgpt-diagnostics.json", "application/json", json);
+    }
+
+    private void ResetAllSettings()
+    {
+        showResetConfirmDialog = true;
+    }
+
+    private void CloseResetDialog()
+    {
+        showResetConfirmDialog = false;
+    }
+
+    private async Task ConfirmResetSettings()
+    {
+        // Reset to default settings
+        settings = new UserSettings();
+        await SaveSettings();
+        showResetConfirmDialog = false;
+    }
+}

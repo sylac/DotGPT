@@ -1,0 +1,49 @@
+@using DotGPT.Core.Interfaces
+@using DotGPT.Core.Models
+@inject ISettingsService SettingsService
+
+<h2>General Settings</h2>
+
+<div class="settings-section">
+    <h3>Chat</h3>
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="saveHistory" 
+               @bind="settings.SaveChatHistory" @bind:after="SaveSettings">
+        <label class="form-check-label" for="saveHistory">Save chat history</label>
+    </div>
+    
+    <div class="form-group mb-3">
+        <label for="maxHistory">Maximum conversations to keep</label>
+        <input type="number" class="form-control" id="maxHistory" min="1" max="100" 
+               @bind="settings.MaxConversationsToKeep" @bind:after="SaveSettings">
+    </div>
+</div>
+
+<div class="settings-section">
+    <h3>Notifications</h3>
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="enableNotifications" 
+               @bind="settings.EnableNotifications" @bind:after="SaveSettings">
+        <label class="form-check-label" for="enableNotifications">Enable notifications</label>
+    </div>
+    
+    <div class="form-check form-switch mb-3">
+        <input class="form-check-input" type="checkbox" id="soundAlerts" 
+               @bind="settings.SoundAlerts" @bind:after="SaveSettings">
+        <label class="form-check-label" for="soundAlerts">Sound alerts</label>
+    </div>
+</div>
+
+@code {
+    private UserSettings settings = new UserSettings();
+
+    protected override async Task OnInitializedAsync()
+    {
+        settings = await SettingsService.GetSettingsAsync();
+    }
+
+    private async Task SaveSettings()
+    {
+        await SettingsService.SaveSettingsAsync(settings);
+    }
+}

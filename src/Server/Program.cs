@@ -7,6 +7,19 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Register Core and Infrastructure services
+builder.Services.AddHttpClient("ollama", client =>
+{
+    // When running in Docker, use the service name as the base address
+    client.BaseAddress = new Uri("http://ollama:11434");
+});
+
+builder.Services.AddScoped<DotGPT.Core.Interfaces.IOllamaService, DotGPT.Infrastructure.Services.OllamaService>(sp => {
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var httpClient = httpClientFactory.CreateClient("ollama");
+    return new DotGPT.Infrastructure.Services.OllamaService(httpClient);
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -25,31 +38,7 @@ app.UseStaticFiles();          // Add this to serve static files (like CSS, JS f
 
 app.UseAuthorization();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
 app.MapControllers();
 app.MapFallbackToFile("index.html"); // Add this to handle Blazor routing
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

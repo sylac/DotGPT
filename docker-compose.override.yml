@@ -1,0 +1,27 @@
+services:
+  dotgpt.server:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_HTTP_PORTS=8080
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
+      # Remove source code volume mount if not needed for hot-reload during development
+      # - ./src/Server:/app # Example: Adjust path if needed
+    expose:
+      - "8080"
+    # Add ports mapping if direct access from host is needed during development
+    # ports:
+    #  - "5000:8080" # Example: Map host 5000 to container 8080
+
+  dotgpt.client:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "8081:80"
+    # Remove source code volume mount if not needed for hot-reload during development
+    # volumes:
+    #  - ./src/Client:/usr/share/nginx/html # Example: Mount to nginx root
+
+  ollama:
+    environment:
+      - "OLLAMA_DEBUG=1"

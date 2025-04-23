@@ -1,0 +1,17 @@
+@using DotGPT.Core.Models
+
+<div class="@MessageClass">
+    <div class="message-content">
+        @Message.Content
+    </div>
+    <div class="message-timestamp">
+        @Message.Timestamp.ToLocalTime().ToString("HH:mm")
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Message Message { get; set; } = new Message();
+
+    private string MessageClass => Message.IsUserMessage ? "chat-message user-message" : "chat-message assistant-message";
+}
